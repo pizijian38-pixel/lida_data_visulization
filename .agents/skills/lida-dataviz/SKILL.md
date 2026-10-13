@@ -22,8 +22,11 @@ Windows 上没有 `python` 命令时改用 `py`。在 `python -c` 里写 Windows
 
 ## 第 0 步：环境检查（每个会话首次使用时）
 
+先运行检查命令；报 `ModuleNotFoundError` 时再安装依赖（不要用 `||` 连接两条命令，Windows PowerShell 5.1 不支持）：
+
 ```bash
-python -c "import pandas, matplotlib, seaborn, openpyxl" || pip install -r "<SKILL_DIR>/scripts/requirements.txt"
+python -c "import pandas, matplotlib, seaborn, openpyxl"
+pip install -r "<SKILL_DIR>/scripts/requirements.txt"
 ```
 
 ## 第 1 步：生成数据摘要
