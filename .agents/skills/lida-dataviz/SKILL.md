@@ -13,8 +13,8 @@ description: 根据用户的需求描述和原始数据文件（CSV / Excel / JS
           ──render.py──▶ PNG + 质量告警 ──你看图评估──▶ 修复(≤2轮) ──▶ 交付
 ```
 
-`<SKILL_DIR>` 指本文件所在目录：工作区安装时是 `.agent/skills/lida-dataviz`，
-全局安装时是 `~/.gemini/antigravity/skills/lida-dataviz`。所有产物写到工作区根目录的
+`<SKILL_DIR>` 指本文件所在目录（工作区安装时通常是 `.agents/skills/lida-dataviz`，
+全局安装时在 `~/.gemini/...` 下）。不确定时用本文件的实际绝对路径。所有产物写到工作区根目录的
 `dataviz_output/` 下。
 
 ## 第 0 步：环境检查（每个会话首次使用时）

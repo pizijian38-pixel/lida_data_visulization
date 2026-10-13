@@ -17,19 +17,22 @@
 
 ## 安装
 
-**仅当前项目可用**：把整个 `lida-dataviz` 目录放到项目根目录的 `.agent/skills/` 下（本仓库已经放好）。
+**仅当前项目可用**：把整个 `lida-dataviz` 目录放到项目根目录的 `.agents/skills/` 下（本仓库已经放好）。
+较早版本的 Antigravity 读取的是 `.agent/skills/`，新版本对它保持向后兼容。
 
-**所有项目可用**：
+**所有项目可用**：全局目录在不同的 Antigravity 版本和产品（App / IDE / CLI）之间不一致，
+已知的有 `~/.gemini/config/skills/`、`~/.gemini/antigravity/skills/`、`~/.gemini/antigravity-cli/skills/`。
+请以你所用版本的官方文档（antigravity.google/docs/skills）为准，例如：
 
 ```bash
-mkdir -p ~/.gemini/antigravity/skills
-cp -r .agent/skills/lida-dataviz ~/.gemini/antigravity/skills/
+mkdir -p ~/.gemini/config/skills
+cp -r .agents/skills/lida-dataviz ~/.gemini/config/skills/
 ```
 
 **Python 依赖**（Agent 首次使用时也会自动检查）：
 
 ```bash
-pip install -r .agent/skills/lida-dataviz/scripts/requirements.txt
+pip install -r .agents/skills/lida-dataviz/scripts/requirements.txt
 ```
 
 **中文字体**：
