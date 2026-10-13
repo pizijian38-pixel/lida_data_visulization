@@ -17,16 +17,19 @@ description: 根据用户的需求描述和原始数据文件（CSV / Excel / JS
 全局安装时在 `~/.gemini/...` 下）。不确定时用本文件的实际绝对路径。所有产物写到工作区根目录的
 `dataviz_output/` 下。
 
+**路径与平台**：命令里的所有路径都要**加双引号**（Windows 路径常含空格，例如 `"D:\99 AI agent\..."`）。
+Windows 上没有 `python` 命令时改用 `py`。在 `python -c` 里写 Windows 路径时用原始字符串 `r"..."` 或正斜杠。
+
 ## 第 0 步：环境检查（每个会话首次使用时）
 
 ```bash
-python -c "import pandas, matplotlib, seaborn, openpyxl" || pip install -r <SKILL_DIR>/scripts/requirements.txt
+python -c "import pandas, matplotlib, seaborn, openpyxl" || pip install -r "<SKILL_DIR>/scripts/requirements.txt"
 ```
 
 ## 第 1 步：生成数据摘要
 
 ```bash
-python <SKILL_DIR>/scripts/summarize.py <数据文件> [--sheet 工作表名]
+python "<SKILL_DIR>/scripts/summarize.py" "<数据文件>" [--sheet 工作表名]
 ```
 
 完整阅读输出的 JSON，重点看：
@@ -59,7 +62,7 @@ python <SKILL_DIR>/scripts/summarize.py <数据文件> [--sheet 工作表名]
 ## 第 5 步：渲染
 
 ```bash
-python <SKILL_DIR>/scripts/render.py --data <数据文件> --code dataviz_output/<slug>.py --out dataviz_output/<slug>.png [--sheet 工作表名]
+python "<SKILL_DIR>/scripts/render.py" --data "<数据文件>" --code "dataviz_output/<slug>.py" --out "dataviz_output/<slug>.png" [--sheet 工作表名]
 ```
 
 - `"status": "error"`：根据 `chart_code_lines`、`message`、`hint`、`available_columns` 修代码后重跑。最多 3 次，仍失败就把错误如实告诉用户。
@@ -77,7 +80,7 @@ python <SKILL_DIR>/scripts/render.py --data <数据文件> --code dataviz_output
 交付时要说的任何具体数字（最大值、增长率、占比……）都必须用 pandas 从数据里**算出来**，不能目测图表：
 
 ```bash
-python -c "import sys; sys.path.insert(0, '<SKILL_DIR>/scripts'); from dataio import read_data, to_number, to_date; df = read_data('<数据文件>'); ..."
+python -c "import sys; sys.path.insert(0, r'<SKILL_DIR>/scripts'); from dataio import read_data, to_number, to_date; df = read_data(r'<数据文件>'); ..."
 ```
 
 ## 第 8 步：交付

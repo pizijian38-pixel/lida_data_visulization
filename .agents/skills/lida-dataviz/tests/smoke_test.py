@@ -17,9 +17,16 @@ from dataio import to_date, to_number  # noqa: E402
 
 
 def run(script, *args):
+    # PYTHONIOENCODING=gbk reproduces piped stdout on Chinese Windows on every platform
+    env = {**os.environ, "PYTHONIOENCODING": "gbk"}
     proc = subprocess.run([sys.executable, os.path.join(SCRIPTS, script), *args],
-                          capture_output=True, text=True, encoding="utf-8")
-    return proc.returncode, json.loads(proc.stdout)
+                          capture_output=True, text=True, encoding="utf-8", env=env)
+    try:
+        return proc.returncode, json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        raise AssertionError(
+            f"{script} did not print JSON (exit code {proc.returncode}).\n"
+            f"--- stdout ---\n{proc.stdout}\n--- stderr ---\n{proc.stderr}") from None
 
 
 def main():

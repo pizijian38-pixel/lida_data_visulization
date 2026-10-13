@@ -35,7 +35,7 @@ import pandas as pd  # noqa: E402
 from matplotlib import font_manager  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from dataio import read_data, to_date, to_number  # noqa: E402
+from dataio import force_utf8_stdio, read_data, to_date, to_number  # noqa: E402
 
 logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 
@@ -175,6 +175,7 @@ def emit(payload: dict, code: int) -> int:
 
 
 def main() -> int:
+    force_utf8_stdio()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--data", required=True)
     parser.add_argument("--code", required=True, help="path to the chart .py file")

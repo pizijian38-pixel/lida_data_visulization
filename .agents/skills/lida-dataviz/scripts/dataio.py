@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 import warnings
 
 import pandas as pd
@@ -19,6 +20,14 @@ CSV_ENCODINGS = ["utf-8-sig", "gb18030", "big5", "latin-1"]
 UNIT_MULTIPLIER = {"万": 1e4, "亿": 1e8, "k": 1e3, "K": 1e3, "m": 1e6, "M": 1e6}
 SUPPORTED = (".csv", ".tsv", ".txt", ".json", ".jsonl", ".xlsx", ".xlsm", ".xls",
              ".parquet", ".feather")
+
+
+def force_utf8_stdio() -> None:
+    """Emit UTF-8 regardless of platform. On Chinese Windows, piped stdout defaults to GBK,
+    which cannot encode characters such as '¥' and makes the scripts crash with no output."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 def _read_text_table(path: str, sep, encoding: str | None) -> pd.DataFrame:

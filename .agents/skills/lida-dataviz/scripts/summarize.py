@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from dataio import read_data, to_date, to_number  # noqa: E402
+from dataio import force_utf8_stdio, read_data, to_date, to_number  # noqa: E402
 
 DATE_LIKE_NAME = re.compile(
     r"^(19|20)\d{2}([-/年.]?(0?[1-9]|1[0-2])月?)?$|^(0?[1-9]|1[0-2])月$|^Q[1-4]$|^(19|20)\d{2}\s*Q[1-4]$",
@@ -153,6 +153,7 @@ def summarize(df: pd.DataFrame, file_name: str, n_samples: int = 3) -> dict:
 
 
 def main() -> int:
+    force_utf8_stdio()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("data")
     parser.add_argument("--sheet", default=None, help="Excel sheet name or index")
