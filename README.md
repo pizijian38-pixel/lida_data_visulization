@@ -17,7 +17,7 @@ LIDA is a library for generating data visualizations and data-faithful infograph
 > Ensure that you run LIDA in a secure environment.
 
 > **Google Antigravity skill:** this fork ships [`.agents/skills/lida-dataviz`](.agents/skills/lida-dataviz/README.md), which ports LIDA's
-> summarize → goal → code → execute → evaluate → repair pipeline to an Antigravity Agent Skill that turns a request plus raw data into static PNG charts
+> summarize → goal → code → execute → evaluate → repair pipeline to an Antigravity Agent Skill that turns a request plus raw data into static PNG charts and .xlsx files with native, editable Excel charts for PowerPoint
 > (no separate LLM API key needed; Chinese column names, fonts and number formats supported).
 
 ## Features

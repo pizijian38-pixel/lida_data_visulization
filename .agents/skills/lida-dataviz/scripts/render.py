@@ -1,7 +1,11 @@
 """Execute chart code against the FULL dataset and save a static PNG (port of LIDA's ChartExecutor).
 
 Usage:
-    python render.py --data <data_file> --code <chart.py> --out <chart.png> [--sheet S] [--encoding E] [--dpi 200]
+    python render.py --data <data_file> --code <chart.py> --out <chart.png> [--xlsx <chart.xlsx>]
+                     [--sheet S] [--encoding E] [--dpi 200]
+
+With --xlsx, the code must also define chart_data(data) and EXCEL_CHART; an .xlsx with a native,
+editable Excel chart is written next to the PNG (see excel_export.py).
 
 Chart code contract (same idea as LIDA's scaffold):
     - defines `plot(data: pd.DataFrame)` and returns a matplotlib Figure / Axes / plt,
@@ -110,10 +114,30 @@ def run_chart_code(code: str, data: pd.DataFrame):
         pass
     exec(compile(code, "<chart_code>", "exec"), namespace)
     if "chart" in namespace:
-        return namespace["chart"]
+        return namespace["chart"], namespace
     if callable(namespace.get("plot")):
-        return namespace["plot"](data)
+        return namespace["plot"](data), namespace
     raise NameError("代码里没有定义 plot(data) 函数。")
+
+
+def export_xlsx(namespace: dict, data: pd.DataFrame, code: str, xlsx_path: str, png_path: str) -> dict:
+    """Build the native-Excel-chart workbook from chart_data(data) + EXCEL_CHART."""
+    missing = [name for name in ("chart_data", "EXCEL_CHART") if name not in namespace]
+    if missing:
+        return {"status": "error", "stage": "xlsx",
+                "message": f"使用 --xlsx 时，代码里必须定义 {' 和 '.join(missing)}（见 references/code_template.md 的「Excel 原生图表」一节）。",
+                "png": os.path.abspath(png_path)}
+    try:
+        from excel_export import build_workbook
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            table = namespace["chart_data"](data.copy())
+        xlsx_warnings = build_workbook(table, namespace["EXCEL_CHART"], xlsx_path, png_path)
+    except Exception as exc:
+        payload = execution_error(exc, code, data)
+        payload.update(stage="xlsx", png=os.path.abspath(png_path))
+        return payload
+    return {"status": "ok", "xlsx": os.path.abspath(xlsx_path), "xlsx_warnings": xlsx_warnings}
 
 
 # ---------------------------------------------------------------- quality checks
@@ -183,6 +207,8 @@ def main() -> int:
     parser.add_argument("--sheet", default=None)
     parser.add_argument("--encoding", default=None)
     parser.add_argument("--dpi", type=int, default=200)
+    parser.add_argument("--xlsx", default=None,
+                        help="also write an .xlsx with a native Excel chart (needs chart_data + EXCEL_CHART in the code)")
     args = parser.parse_args()
 
     try:
@@ -200,7 +226,7 @@ def main() -> int:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            chart = run_chart_code(code, data.copy())
+            chart, namespace = run_chart_code(code, data.copy())
             fig = resolve_figure(chart)
     except Exception as exc:
         return emit(execution_error(exc, code, data), 1)
@@ -223,9 +249,15 @@ def main() -> int:
     if any("missing from font" in str(w.message) for w in caught):
         found.append("有字符在当前字体中缺失（显示为方块）。检查中文字体或特殊符号。")
     width, height = fig.get_size_inches() * args.dpi
-    return emit({"status": "ok", "png": os.path.abspath(args.out),
-                 "size_px": [int(width), int(height)], "rows_used": int(len(data)),
-                 "cjk_font": cjk_font, "warnings": found}, 0)
+    result = {"status": "ok", "png": os.path.abspath(args.out),
+              "size_px": [int(width), int(height)], "rows_used": int(len(data)),
+              "cjk_font": cjk_font, "warnings": found}
+    if args.xlsx:
+        xlsx = export_xlsx(namespace, data, code, args.xlsx, args.out)
+        if xlsx["status"] != "ok":
+            return emit(xlsx, 1)
+        result.update(xlsx=xlsx["xlsx"], xlsx_warnings=xlsx["xlsx_warnings"])
+    return emit(result, 0)
 
 
 if __name__ == "__main__":

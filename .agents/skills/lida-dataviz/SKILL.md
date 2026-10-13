@@ -1,17 +1,23 @@
 ---
 name: lida-dataviz
-description: 根据用户的需求描述和原始数据文件（CSV / Excel / JSON / Parquet 等）生成合适的静态数据可视化图表（PNG）。当用户提供数据并要求画图、做图表、可视化、看趋势/分布/对比/占比/相关性，或者只给数据让你"看看有什么发现"时使用。Generates data-faithful static PNG charts from raw data plus a natural-language request (chart, plot, graph, visualize, trend, distribution, comparison). Based on Microsoft LIDA's summarize → goal → code → execute → evaluate → repair pipeline.
+description: 根据用户的需求描述和原始数据文件（CSV / Excel / JSON / Parquet 等）生成合适的数据可视化图表：静态 PNG，以及带原生可编辑 Excel 图表的 .xlsx（可直接复制到 PPT）。当用户提供数据并要求画图、做图表、可视化、看趋势/分布/对比/占比/相关性，或者只给数据让你"看看有什么发现"时使用。Generates data-faithful static PNG charts plus an .xlsx with a native, editable Excel chart (for PowerPoint) from raw data and a natural-language request (chart, plot, graph, visualize, trend, distribution, comparison). Based on Microsoft LIDA's summarize → goal → code → execute → evaluate → repair pipeline.
 ---
 
 # LIDA 数据可视化
 
 本 skill 把 Microsoft LIDA 的流水线移植给你（Agent）执行：**你**扮演 LIDA 里的 LLM，
-`scripts/` 里的两个脚本负责确定性的部分（数据摘要、执行代码出图）。
+`scripts/` 里的脚本负责确定性的部分（数据摘要、执行代码出图、生成 Excel 原生图表）。
 
 ```
 原始数据 ──summarize.py──▶ 数据摘要 ──你──▶ 可视化目标(goal) ──你──▶ 绘图代码
-          ──render.py──▶ PNG + 质量告警 ──你看图评估──▶ 修复(≤2轮) ──▶ 交付
+          ──render.py──▶ PNG + XLSX(原生图表) + 质量告警 ──你看图评估──▶ 修复(≤2轮) ──▶ 交付
 ```
+
+## 输出格式设置
+
+**默认输出：PNG + XLSX**（用户主要把图表用在 PPT 里）。
+- XLSX 里是原生 Excel 图表，可编辑、矢量、无损缩放；复制粘贴到 PowerPoint 后仍是原生图表。
+- 用户说「只要 PNG」「不用 Excel」时，去掉第 5 步命令里的 `--xlsx` 参数，也不用写 `chart_data` / `EXCEL_CHART`。
 
 `<SKILL_DIR>` 指本文件所在目录（工作区安装时通常是 `.agents/skills/lida-dataviz`，
 全局安装时在 `~/.gemini/...` 下）。不确定时用本文件的实际绝对路径。所有产物写到工作区根目录的
@@ -59,24 +65,28 @@ python "<SKILL_DIR>/scripts/summarize.py" "<数据文件>" [--sheet 工作表名
 ## 第 4 步：写绘图代码
 
 严格按 `references/code_template.md` 的模板和规则，写到 `dataviz_output/<简短英文slug>.py`。
-要点：只写 `plot(data)` 函数，代码里**不读取任何文件**（`data` 由 render.py 注入，是全量数据）；
-先在注释里写计划，再写代码。
+要点：
+- 代码里**不读取任何文件**（`data` 由 render.py 注入，是全量数据）；先在注释里写计划，再写代码。
+- 输出 XLSX 时（默认），还要定义 `EXCEL_CHART` 和 `chart_data(data)`，并让 `plot()` 基于 `chart_data()` 作图，
+  保证 PNG 和 Excel 的数字一致。`EXCEL_CHART["type"]` 要和 PNG 的图表类型对应，见 code_template.md 的「Excel 原生图表」一节。
 
 ## 第 5 步：渲染
 
 ```bash
-python "<SKILL_DIR>/scripts/render.py" --data "<数据文件>" --code "dataviz_output/<slug>.py" --out "dataviz_output/<slug>.png" [--sheet 工作表名]
+python "<SKILL_DIR>/scripts/render.py" --data "<数据文件>" --code "dataviz_output/<slug>.py" --out "dataviz_output/<slug>.png" --xlsx "dataviz_output/<slug>.xlsx" [--sheet 工作表名]
 ```
 
-- `"status": "error"`：根据 `chart_code_lines`、`message`、`hint`、`available_columns` 修代码后重跑。最多 3 次，仍失败就把错误如实告诉用户。
-- `"status": "ok"`：进入第 6 步。`warnings` 非空时必须处理。
+- `"status": "error"`：根据 `stage`、`chart_code_lines`、`message`、`hint`、`available_columns` 修代码后重跑。最多 3 次，仍失败就把错误如实告诉用户。
+  `"stage": "xlsx"` 表示 PNG 已生成、Excel 导出失败，通常是 `chart_data` 或 `EXCEL_CHART` 写错了。
+- `"status": "ok"`：进入第 6 步。`warnings` 和 `xlsx_warnings` 非空时必须处理。
 
 ## 第 6 步：看图评估并修复（LIDA 的 evaluate + repair）
 
 1. **打开 PNG 图片亲眼看**，不要只看代码。
 2. 按 `references/evaluation_rubric.md` 的 6 个维度打分（1–10）。
 3. 出现以下任一情况就修改代码并重新渲染，最多 2 轮：render.py 有 `warnings`；任一维度低于 7 分；图上能看出问题（文字被截断、重叠、方块字、颜色难区分、图例遮挡数据）。
-4. 修复时只改 `plot()` 函数内部，保持模板结构不变。
+4. 修复时只改 `plot()`、`chart_data()` 和 `EXCEL_CHART`，保持模板结构不变。
+5. Excel 图表无法直接查看，用这两点代替检查：`chart_data` 的表格正是 PNG 所画的数据；`EXCEL_CHART` 的类型、标题、轴标题、数字格式与 PNG 一致。
 
 ## 第 7 步：核实要引用的数字
 
@@ -92,11 +102,13 @@ python -c "import sys; sys.path.insert(0, r'<SKILL_DIR>/scripts'); from dataio i
 1. 图片（`dataviz_output/<slug>.png`），在回复里展示或给出路径
 2. 2–3 句结论，引用第 7 步算出的数字
 3. 做了哪些数据处理和假设（例如"销售额从文本转成数字，按月汇总，单位换算为万元"）
-4. 代码路径 `dataviz_output/<slug>.py`，方便复用
+4. Excel 文件 `dataviz_output/<slug>.xlsx`，并附上用法：打开「图表」工作表，选中图表，复制，在 PowerPoint 中粘贴即为可编辑的原生图表。
+   如果 `type` 是 `image` 或 `heatmap`，要说明这张图在 PPT 中不是可编辑的原生图表，以及原因。
+5. 代码路径 `dataviz_output/<slug>.py`，方便复用
 
 ## 后续修改（LIDA 的 edit）
 
-用户说"改成柱状图 / 只看华东 / 标题换成英文 / 颜色换成蓝色"时：复制成 `<slug>_v2.py`，只修改 `plot()` 内部来满足**每一条**指令，
+用户说"改成柱状图 / 只看华东 / 标题换成英文 / 颜色换成蓝色"时：复制成 `<slug>_v2.py`（输出也改为 `<slug>_v2.png` / `<slug>_v2.xlsx`），修改 `plot()`、`chart_data()` 和 `EXCEL_CHART` 来满足**每一条**指令，
 然后重复第 5–8 步。保留旧版本，方便用户对比。
 
 ## 硬性规则

@@ -2,9 +2,11 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
+import zipfile
 
 import pandas as pd
 
@@ -14,6 +16,8 @@ SAMPLE = os.path.join(SKILL_DIR, "examples", "sample_sales.csv")
 EXAMPLE_CODE = os.path.join(SKILL_DIR, "examples", "example_chart.py")
 sys.path.insert(0, SCRIPTS)
 from dataio import to_date, to_number  # noqa: E402
+from excel_export import build_workbook  # noqa: E402
+from openpyxl import load_workbook  # noqa: E402
 
 
 def run(script, *args):
@@ -61,7 +65,47 @@ def main():
     dates = to_date(pd.Series(["2024年1月5日", "20240105", "2024/3", "x"]))
     assert str(dates[0].date()) == "2024-01-05" and str(dates[1].date()) == "2024-01-05" and pd.isna(dates[3])
 
+    # --- native Excel chart export
+    xlsx = os.path.join(tmp, "chart.xlsx")
+    code, result = run("render.py", "--data", SAMPLE, "--code", EXAMPLE_CODE, "--out", png, "--xlsx", xlsx)
+    assert code == 0 and result["xlsx_warnings"] == [], result
+    assert re.search("<lineChart>", chart_xml(xlsx))
+    wb = load_workbook(xlsx)
+    assert wb.sheetnames == ["图表", "数据", "PNG预览"], wb.sheetnames
+    ws = wb["数据"]
+    assert ws["A1"].value == "月份" and ws["A2"].value == "2024-01", "monthly dates must become 2024-01 labels"
+    assert ws["B1"].value == "华东" and isinstance(ws["B2"].value, float)
+
+    no_spec = os.path.join(tmp, "no_spec.py")
+    with open(no_spec, "w", encoding="utf-8") as fh:
+        fh.write("def plot(data):\n    fig, ax = plt.subplots(); ax.bar(['a'], [1]); ax.set_title('t'); return fig\n")
+    code, result = run("render.py", "--data", SAMPLE, "--code", no_spec, "--out", png, "--xlsx", xlsx)
+    assert code == 1 and result["stage"] == "xlsx" and "chart_data" in result["message"], result
+
+    table = pd.DataFrame({"品类": ["配件", "手机", "平板"], "销售额": [3.0, 2.0, 1.0], "毛利率": [0.35, 0.18, 0.14]})
+    cases = {
+        "bar": ({"type": "bar", "title": "t", "number_format": "0.0%", "data_labels": True}, r'<barDir val="bar"\s*/>'),
+        "pie": ({"type": "pie", "title": "t"}, "<pieChart>"),
+        "combo": ({"type": "col", "title": "t", "secondary": ["毛利率"]}, "<lineChart>"),
+        "heatmap": ({"type": "heatmap", "title": "t"}, None),
+    }
+    for name, (spec, marker) in cases.items():
+        path = os.path.join(tmp, f"{name}.xlsx")
+        build_workbook(table, spec, path, png)
+        if marker:
+            assert re.search(marker, chart_xml(path)), name  # lxml / stdlib serialize "/>" differently
+    try:
+        build_workbook(table, {"type": "radar"}, os.path.join(tmp, "bad.xlsx"))
+        raise AssertionError("unsupported chart type must raise")
+    except ValueError as exc:
+        assert "不支持" in str(exc)
+
     print("all smoke tests passed")
+
+
+def chart_xml(path: str) -> str:
+    with zipfile.ZipFile(path) as zf:
+        return zf.read("xl/charts/chart1.xml").decode("utf-8")
 
 
 if __name__ == "__main__":

@@ -25,6 +25,8 @@ def plot(data: pd.DataFrame):
 chart = plot(data)  # data 已经加载好；保留这一行，后面不要再写代码
 ```
 
+使用 `--xlsx`（默认）时，还要按下文「Excel 原生图表」一节定义 `EXCEL_CHART` 和 `chart_data(data)`，并让 `plot()` 基于 `chart_data()` 作图。
+
 render.py 会注入这些名字，可以直接使用：`data`（全量数据的副本）、`pd`、`np`、`plt`、`sns`、`to_number`、`to_date`。
 
 ## 必须遵守（LIDA 的通用指令，已改写）
@@ -92,6 +94,60 @@ ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
 ```python
 long = data.melt(id_vars=["地区"], var_name="年份", value_name="值")
 ```
+
+## Excel 原生图表（`--xlsx`，默认开启）
+
+使用 `--xlsx` 时，代码除了 `plot(data)`，还必须定义下面两样东西。render.py 会据此生成一个 `.xlsx`，里面有三个工作表：
+- 「图表」：**原生 Excel 图表**，可编辑、矢量、无损缩放，复制到 PPT 后仍是原生图表
+- 「数据」：图表引用的汇总表
+- 「PNG预览」：渲染出的 PNG，方便对照
+
+```python
+EXCEL_CHART = {
+    "type": "line",                 # 见下表
+    "title": "各大区月度销售额趋势",
+    "x_title": "月份",               # 可省略
+    "y_title": "销售额（万元）",      # 可省略
+    "number_format": "#,##0",       # 数值轴和数据单元格的 Excel 格式: "#,##0" / "#,##0.0" / "0.0%" / "0%"
+    "data_labels": False,           # 在柱/条/点上显示数值
+}
+
+def chart_data(data: pd.DataFrame) -> pd.DataFrame:
+    """PNG 和 Excel 共用的汇总表。宽表格式: 第 1 列 = 类别或 x 轴, 其余每列 = 一个系列。"""
+    ...
+    return table
+
+def plot(data: pd.DataFrame):
+    table = chart_data(data)        # 必须基于 chart_data 作图，保证 PNG 与 Excel 数字完全一致
+    ...
+```
+
+**规则**
+1. `chart_data` 返回的是**汇总后**的数据（通常几行到几十行），不是明细；行的顺序就是图上的显示顺序，排序在这里完成。
+2. 列名就是 Excel 里的系列名和图例，用用户的语言，单位写在 `y_title` 里。
+3. 百分比数据保持 0–1 的小数，用 `"number_format": "0.0%"` 显示；金额先换算成万元/亿元再返回。
+4. 日期列可以直接返回 datetime：月度数据会显示为 `2024-01`，其他显示为 `2024-01-05`。
+5. Excel 图表只能表达 `chart_data` 里的数据。PNG 上的额外标注（线尾标签、注释文字、参考线）不会出现在 Excel 里，这是正常的。
+   参考线需要的话，在表里加一列常数值作为额外的系列（例如「平均值」）。
+
+**`type` 与 PNG 图表类型的对应**
+
+| PNG 里画的是 | `type` | 表格格式 / 说明 |
+|---|---|---|
+| 柱状图 | `col` | 第 1 列类别，每个系列一列 |
+| 横向条形图 | `bar` | 同上；**表格第一行显示在最上面** |
+| 堆积 / 百分比堆积柱 | `stacked_col` / `percent_col` | 第 1 列类别，每个组成部分一列 |
+| 堆积 / 百分比堆积条形 | `stacked_bar` / `percent_bar` | 同上 |
+| 折线图 | `line` | 第 1 列时间或类别，每条线一列 |
+| 面积 / 堆积面积 | `area` / `stacked_area` | 同折线 |
+| 饼图 / 环形图 | `pie` / `doughnut` | 第 1 列类别，第 2 列数值（≤ 8 块） |
+| 散点图 | `scatter` | 宽表：第 1 列 x（数值），其余列 y；或长表加 `"x"`、`"y"`、`"group"` 三个键按组着色 |
+| 柱 + 折线（次坐标轴） | `col` 加 `"secondary": ["列名"]` | 指定列画成右侧坐标轴上的折线，可加 `secondary_title`、`secondary_number_format`、`secondary_min` / `secondary_max` |
+| 热力图 | `heatmap` | 第 1 列行标签，其余列为列标签；Excel 没有原生热力图，生成带色阶的表格 |
+| 直方图 | `col` | 在 `chart_data` 里先分箱（`pd.cut` + `value_counts`），返回「区间, 频数」 |
+| 箱线图、小提琴图、回归线、hexbin、小多图等 | `image` | Excel 没有原生对应，只嵌入 PNG 并附数据表；交付时告诉用户这张图在 PPT 里不可编辑 |
+
+其他可选键：`colors`（十六进制颜色列表，默认与 matplotlib 的 tab10 一致）、`y_min` / `y_max`、`width_cm` / `height_cm`（默认 25.4 × 14.3 cm，16:9）。
 
 ## 其他库（仅在用户要求时使用）
 
