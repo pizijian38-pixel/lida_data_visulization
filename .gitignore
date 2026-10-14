@@ -152,3 +152,6 @@ dmypy.json
 
 # lida-dataviz skill outputs
 dataviz_output/
+
+# Gemini skill build output
+gemini-skill/dist/

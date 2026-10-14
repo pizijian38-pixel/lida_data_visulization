@@ -19,6 +19,10 @@ LIDA is a library for generating data visualizations and data-faithful infograph
 > **Google Antigravity skill:** this fork ships [`.agents/skills/lida-dataviz`](.agents/skills/lida-dataviz/README.md), which ports LIDA's
 > summarize → goal → code → execute → evaluate → repair pipeline to an Antigravity Agent Skill that turns a request plus raw data into static PNG charts and .xlsx files with native, editable Excel charts for PowerPoint
 > (no separate LLM API key needed; Chinese column names, fonts and number formats supported).
+>
+> **Gemini web app (gemini.google.com) skill:** [`gemini-skill/`](gemini-skill/README.md) holds a version adapted to the
+> Gemini Apps skill rules (text-only upload, no internet, single-file helper, concise SKILL.md). Package it with
+> `python gemini-skill/build_zip.py` and upload the result on the Skills page.
 
 ## Features
 
